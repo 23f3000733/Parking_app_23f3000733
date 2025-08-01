@@ -1,0 +1,143 @@
+<!-- Rating Modal -->
+<div id="ratingModal" class="modal">
+    <div class="modal-content"></div>
+        <span id="closeRatingModal" class="close">&times;</span>
+        <h2>Rate Your Experience</h2>
+        <form id="rating-form" method="post" action="{{ url_for('user.submit_rating') }}">
+            <input type="hidden" name="booking_id" id="rating-booking-id">
+            <div class="star-rating">
+                {% for i in range(5, 0, -1) %}
+                    <input type="radio" id="rating-star{{ i }}" name="rating" value="{{ i }}">
+                    <label for="rating-star{{ i }}" title="{{ i }} stars">&#9733;</label>
+                {% endfor %}
+            </div>
+            <label for="rating-feedback" class="feedback-label">Leave Feedback:</label>
+            <textarea
+                id="rating-feedback"
+                name="feedback"
+                placeholder="Your comments..."
+                rows="3"
+                required
+                class="feedback-textarea"
+            ></textarea>
+            <button type="submit" class="book-confirm-btn">Submit Rating</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1100;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(44, 62, 80, 0.25);
+        backdrop-filter: blur(2px);
+    }
+    .modal-content {
+        background: #fff;
+        margin: 5% auto;
+        padding: 32px 36px 28px;
+        border-radius: 18px;
+        width: 95%;
+        max-width: 420px;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(44, 62, 80, 0.18), 0 1.5px 8px rgba(52, 152, 219, 0.10);
+        animation: fadeIn 0.25s ease-in-out;
+    }
+    .close {
+        color: #3498db;
+        position: absolute;
+        top: 14px;
+        right: 22px;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .close:hover {
+        color: #1abc9c;
+    }
+    .star-rating {
+        direction: rtl;
+        display: flex;
+        gap: 5px;
+        margin-bottom: 10px;
+    }
+    .star-rating input[type="radio"] {
+        display: none;
+    }
+    .star-rating label {
+        font-size: 1.5rem;
+        color: #ccc;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .star-rating input[type="radio"]:checked ~ label,
+    .star-rating label:hover,
+    .star-rating label:hover ~ label {
+        color: #facc15;
+    }
+    .feedback-label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 600;
+        color: #3498db;
+    }
+    .feedback-textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1.5px solid #b2ebf2;
+        font-size: 1rem;
+        background: #f8fdff;
+        color: #34495e;
+        margin-bottom: 1rem;
+    }
+    .book-confirm-btn {
+        margin-top: 1rem;
+    }
+    @keyframes fadeIn {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: none;
+            opacity: 1;
+        }
+    }
+    @media (max-width: 480px) {
+        .modal-content {
+            padding: 24px;
+            width: 90%;
+        }
+        .book-confirm-btn {
+            font-size: 1rem;
+            padding: 0.6rem 1.2rem;
+        }
+    }
+</style>
+<script>
+document.getElementById('closeRatingModal')?.addEventListener('click', () => {
+    document.getElementById('ratingModal').style.display = 'none';
+});
+
+window.onclick = (event) => {
+    const modal = document.getElementById('ratingModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+};
+
+document.getElementById('rating-form')?.addEventListener('submit', (e) => {
+    const feedback = document.getElementById('rating-feedback').value.trim();
+    if (!feedback) {
+        alert('Please provide feedback before submitting.');
+        e.preventDefault();
+    }
+});
+</script>

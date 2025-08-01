@@ -1,0 +1,123 @@
+<!-- Booking Modal -->
+<div id="bookingModal" class="modal">
+    <div class="modal-content">
+        <span id="closeBookingModal" class="close">&times;</span>
+        <h2>Book a Spot</h2>
+        <form id="dashboard-booking-form" method="post" action="{{ url_for('user.book_spot') }}">
+            <input type="hidden" name="spot_id" id="dashboard-spot-id">
+
+            <label for="dashboard-spot-select">Select Spot:</label>
+            <select id="dashboard-spot-select" name="spot_id" required></select>
+
+            <label for="dashboard-start-time">Start Time:</label>
+            <input type="datetime-local" id="dashboard-start-time" name="start_time" required>
+
+            <label for="dashboard-end-time">End Time:</label>
+            <input type="datetime-local" id="dashboard-end-time" name="end_time" required>
+
+            <p>Rate per hour: ₹<span id="dashboard-rate-per-hour">0</span></p>
+            <p>Total: ₹<span id="dashboard-total-price">0</span></p>
+
+            <button type="submit" class="book-confirm-btn">Pay & Book</button>
+        </form>
+        <div id="no-spots-message">No spots available for booking.</div>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1100;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(44, 62, 80, 0.25);
+        backdrop-filter: blur(2px);
+    }
+    .modal-content {
+        background: #fff;
+        margin: 5% auto;
+        padding: 32px 36px 28px;
+        border-radius: 18px;
+        width: 95%;
+        max-width: 420px;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(44,62,80,0.18), 0 1.5px 8px rgba(52,152,219,0.10);
+        animation: fadeIn 0.25s ease-in-out;
+    }
+    .close {
+        color: #3498db;
+        position: absolute;
+        top: 14px;
+        right: 22px;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .close:hover { color: #1abc9c; }
+    #dashboard-booking-form label {
+        display: block;
+        margin: 12px 0 4px;
+        font-weight: 600;
+        color: #3498db;
+    }
+    #dashboard-booking-form input[type="datetime-local"],
+    #dashboard-spot-select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1.5px solid #b2ebf2;
+        border-radius: 7px;
+        margin-bottom: 10px;
+        font-size: 1rem;
+        background: #f8fdff;
+        color: #34495e;
+        transition: border 0.2s;
+    }
+    #dashboard-booking-form input:focus,
+    #dashboard-spot-select:focus {
+        border-color: #3498db;
+        outline: none;
+    }
+    #dashboard-booking-form p {
+        margin: 8px 0 0;
+        font-size: 1.05rem;
+        color: #2c3e50;
+        text-align: right;
+    }
+    .book-confirm-btn {
+        background: #6366f1;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0.7rem 1.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1.2rem;
+        width: 100%;
+        box-shadow: 0 2px 8px rgba(52,152,219,0.10);
+        transition: background 0.2s, box-shadow 0.2s;
+    }
+    .book-confirm-btn:hover {
+        background: #4f46e5;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.2);
+    }
+    #no-spots-message {
+        display: none;
+        color: #dc3545;
+        text-align: center;
+        margin-top: 1rem;
+        font-weight: 600;
+    }
+    @keyframes fadeIn {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: none; opacity: 1; }
+    }
+    @media (max-width: 480px) {
+        .modal-content { padding: 24px; width: 90%; }
+        .book-confirm-btn { font-size: 1rem; padding: 0.6rem 1.2rem; }
+    }
+</style>
