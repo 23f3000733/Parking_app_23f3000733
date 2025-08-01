@@ -1,0 +1,371 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="summary-container">
+    <h2>Admin Summary Dashboard</h2>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+        <!-- Spot Status Chart Card -->
+        <div class="chart-container">
+            <h3>Spot Status Overview</h3>
+            <div class="chart-wrapper small">
+                <canvas id="statusChart"></canvas>
+            </div>
+            <!-- Doughnut Chart Legend -->
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #10b981;"></div>
+                    <span>Available ({{ available }})</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ef4444;"></div>
+                    <span>Occupied ({{ occupied }})</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spots per Lot Chart Card -->
+        <div class="chart-container">
+            <h3>Spots Distribution by Location</h3>
+            <div class="chart-wrapper">
+                <canvas id="lotChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Income Over Time Chart Card -->
+        <div class="chart-container">
+            <h3>Revenue Trend (Last 7 Days)</h3>
+            <div class="chart-wrapper">
+                <canvas id="incomeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- User Activity Chart Card -->
+        <div class="chart-container">
+            <h3>User Booking Activity</h3>
+            <div class="chart-wrapper">
+                <canvas id="userChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // ===== Global Chart Configuration =====
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#64748b';
+
+    // ===== Custom Chart Colors =====
+    const colors = {
+        primary: '#3b82f6',
+        success: '#10b981',
+        warning: '#f59e0b',
+        danger: '#ef4444',
+        purple: '#8b5cf6',
+        gradient: {
+            blue: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+            green: 'linear-gradient(135deg, #10b981, #059669)',
+            yellow: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            red: 'linear-gradient(135deg, #ef4444, #dc2626)'
+        }
+    };
+
+    // ===== Spot Status Doughnut Chart =====
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Available', 'Occupied'],
+            datasets: [{
+                data: [{{ available }}, {{ occupied }}],
+                backgroundColor: [colors.success, colors.danger],
+                borderWidth: 0,
+                cutout: '70%'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    callbacks: {
+                        // Show value and percentage in tooltip
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed * 100) / total).toFixed(1);
+                            return `${context.label}: ${context.parsed} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // ===== Spots per Lot Bar Chart =====
+    const lotCtx = document.getElementById('lotChart').getContext('2d');
+    new Chart(lotCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ lot_names | tojson }},
+            datasets: [{
+                label: 'Total Spots',
+                data: {{ spot_counts | tojson }},
+                backgroundColor: colors.primary,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#64748b' }
+                }
+            }
+        }
+    });
+
+    // ===== Income Over Time Line Chart =====
+    const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+    // Create gradient for line chart fill
+    const gradient = incomeCtx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(251, 191, 36, 0.3)');
+    gradient.addColorStop(1, 'rgba(251, 191, 36, 0.05)');
+
+    new Chart(incomeCtx, {
+        type: 'line',
+        data: {
+            labels: {{ dates | tojson }},
+            datasets: [{
+                label: 'Daily Revenue (₹)',
+                data: {{ income_values | tojson }},
+                borderColor: colors.warning,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: colors.warning,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    callbacks: {
+                        // Show formatted revenue in tooltip
+                        label: function(context) {
+                            return `Revenue: ₹${context.parsed.y.toLocaleString()}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        color: '#64748b',
+                        callback: function(value) {
+                            return '₹' + value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#64748b' }
+                }
+            }
+        }
+    });
+
+    // ===== User Activity Horizontal Bar Chart =====
+    const userCtx = document.getElementById('userChart').getContext('2d');
+    new Chart(userCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ user_names | tojson }},
+            datasets: [{
+                label: 'Total Bookings',
+                data: {{ user_bookings | tojson }},
+                backgroundColor: colors.purple,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y', // Horizontal bars
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#64748b' }
+                }
+            }
+        }
+    });
+
+    // ===== Add Loading Animation to Charts =====
+    document.querySelectorAll('canvas').forEach(canvas => {
+        canvas.style.opacity = '0';
+        canvas.style.transition = 'opacity 0.3s ease';
+        // Fade in charts after short delay
+        setTimeout(() => {
+            canvas.style.opacity = '1';
+        }, 300);
+    });
+
+    // ===== Responsive Chart Resizing =====
+    window.addEventListener('resize', () => {
+        Chart.helpers.each(Chart.instances, (instance) => {
+            instance.resize();
+        });
+    });
+</script>
+
+<style>
+    /* ===== Summary Container ===== */
+    .summary-container {
+        padding: 2rem;
+        font-family: 'Segoe UI', Roboto, sans-serif;
+        color: #1f2937;
+        background-color: #f9fafb;
+    }
+
+    /* ===== Section Title ===== */
+    .summary-container h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #111827;
+    }
+
+    /* ===== Dashboard Grid ===== */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+    }
+
+    /* ===== Chart Card ===== */
+    .chart-container {
+        background-color: #ffffff;
+        padding: 1.5rem 1.5rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    /* ===== Chart Title ===== */
+    .chart-container h3 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 1rem;
+    }
+
+    /* ===== Chart Area ===== */
+    .chart-wrapper {
+        width: 100%;
+        height: 260px;
+        position: relative;
+    }
+    .chart-wrapper.small {
+        height: 220px;
+    }
+
+    /* ===== Legend for Doughnut Chart ===== */
+    .chart-legend {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0.25rem 0;
+    }
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+    }
+
+    /* ===== Animation for Canvas Loading ===== */
+    canvas {
+        transition: opacity 0.3s ease-in-out;
+        opacity: 0;
+    }
+
+    /* ===== Responsive Adjustments ===== */
+    @media screen and (max-width: 768px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
