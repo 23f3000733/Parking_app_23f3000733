@@ -21,7 +21,7 @@ def get_total_spent(user_id):
 
 @user_bp.route('/dashboard', methods=['GET', 'POST'])
 @login_required
-def dashboard():
+def user_dashboard():
     now = datetime.now()
     active_bookings = get_active_bookings(current_user.id, now)
     total_bookings = get_total_bookings(current_user.id)
