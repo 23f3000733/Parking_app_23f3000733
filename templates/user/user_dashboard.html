@@ -1,0 +1,328 @@
+{% extends 'base1.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+<div class="dashboard-header">
+    <h2>Dashboard</h2>
+    <p class="dashboard-subtitle">Manage your parking sessions and explore new locations</p>
+</div>
+
+{% include 'modals/search_modal.html' %}
+{% include 'modals/booking_modal.html' %}
+{% include 'modals/view_spot_modal.html' %}
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <!-- Active Booking -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-title">Active Booking</div>
+            <div class="stat-icon blue"><i class="fas fa-car"></i></div>
+        </div>
+        <div class="stat-value">{{ active_count }}</div>
+        <div class="stat-change {{ 'positive' if active_count == 0 else 'negative' }}">
+            <i class="fas {{ 'fa-check-circle' if active_count == 0 else 'fa-car' }}"></i>
+            <span>{% if active_count == 0 %}No active booking{% else %}Currently parked{% endif %}</span>
+        </div>
+    </div>
+    <!-- Total Bookings -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-title">Total Bookings</div>
+            <div class="stat-icon green"><i class="fas fa-calendar-check"></i></div>
+        </div>
+        <div class="stat-value">{{ total_count }}</div>
+        <div class="stat-change positive">
+            <i class="fas fa-arrow-up"></i>
+            <span>All time bookings</span>
+        </div>
+    </div>
+    <!-- Available Lots -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-title">Available Lots</div>
+            <div class="stat-icon purple"><i class="fas fa-map-marker-alt"></i></div>
+        </div>
+        <div class="stat-value">{{ parking_lots | length }}</div>
+        <div class="stat-change positive">
+            <i class="fas fa-arrow-up"></i>
+            <span>Parking locations</span>
+        </div>
+    </div>
+    <!-- Total Spent -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-title">Total Spent</div>
+            <div class="stat-icon orange"><i class="fas fa-dollar-sign"></i></div>
+        </div>
+        <div class="stat-value">₹{{ total_spent | round(2) }}</div>
+        <div class="stat-change positive">
+            <i class="fas fa-arrow-up"></i>
+            <span>Lifetime spending</span>
+        </div>
+    </div>
+</div>
+
+<!-- Search Section -->
+<div class="search-section">
+    <div class="search-header">
+        <div class="search-header-icon"><i class="fas fa-search"></i></div>
+        <h3>Find Your Perfect Parking Spot</h3>
+    </div>
+    <p class="search-subtitle">Discover available parking spaces near your destination</p>
+    <div class="search-controls">
+        <form id="searchForm" method="POST" action="{{ url_for('user.user_dashboard') }}" style="display: flex; gap: 10px;">
+            <input type="text" class="search-input" id="searchInput" name="query" placeholder="Enter your destination..." value="{{ search_query or '' }}" required>
+            <button class="search-btn" type="submit">
+                <i class="fas fa-car"></i>
+                Find Parking Now
+            </button>
+            <button class="location-btn" type="button" id="locationBtn">
+                <i class="fas fa-crosshairs"></i>
+                Use My Location
+            </button>
+        </form>
+    </div>
+    <div id="loadingSpinner" class="loading-spinner">
+        <div class="spinner"></div>
+    </div>
+</div>
+
+<!-- Parking Lots Section -->
+<h3>Available Parking Lots</h3>
+<div class="lots-grid">
+    {% if parking_lots %}
+        {% for lot in parking_lots %}
+            <div class="lot-card">
+                <h4 class="lot-name">{{ lot.prime_location_name }}</h4>
+                {% set all_ratings = [] %}
+                {% for spot in lot.spots %}
+                    {% for res in spot.reservations %}
+                        {% if res.rating %}
+                            {% set _ = all_ratings.append(res.rating) %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                {% if all_ratings|length > 0 %}
+                    <div class="lot-rating">
+                        <span class="stars">
+                            {% for i in range(1, 6) %}
+                                {% if i <= (all_ratings|sum / all_ratings|length)|round(0, 'floor') %}
+                                    <i class="fas fa-star"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </span>
+                        <span class="rating-value">{{ (all_ratings|sum / all_ratings|length)|round(2) }}/5</span>
+                    </div>
+                {% endif %}
+                <p class="lot-address">{{ lot.address }} - {{ lot.pin_code }}</p>
+                {% set available_spots = lot.spots | selectattr('status', 'equalto', 'A') | list %}
+                <p class="lot-spots">Available Spots: {{ available_spots | length }}</p>
+                <button class="lot-btn" onclick="openViewSpotModalById({{ lot.id }})">View Spots</button>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No parking lots found for your search.</p>
+    {% endif %}
+</div>
+
+<!-- Scripts and Styles -->
+<style>
+    @media (max-width: 600px) {
+        .stats-grid, .lots-grid { grid-template-columns: 1fr !important; }
+        .search-controls { flex-direction: column; }
+        .lot-card { padding: 1rem; }
+    }
+    .spinner {
+        border: 8px solid #f3f3f3;
+        border-top: 8px solid #3498db;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loading-spinner {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: rgba(255,255,255,0.6);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+    }
+    .lot-rating { margin-bottom: 0.3rem; }
+    .stars { color: #facc15; font-size: 1.1rem; }
+    .rating-value { margin-left: 0.4em; color: #333; font-weight: 600; font-size: 0.98em; }
+</style>
+<script>
+    // Location detection
+    document.getElementById('locationBtn').addEventListener('click', function() {
+        const input = document.getElementById('searchInput');
+        input.value = 'Detecting location...';
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        let location = data.address.city || data.address.town || data.address.village || data.address.state || data.address.postcode || '';
+                        input.value = location;
+                        if(location) document.getElementById('searchForm').dispatchEvent(new Event('submit', {cancelable: true}));
+                    })
+                    .catch(() => {
+                        input.value = '';
+                        alert('Could not detect your location.');
+                    });
+            }, function() {
+                input.value = '';
+                alert('Location access denied.');
+            });
+        } else {
+            input.value = '';
+            alert('Geolocation is not supported by your browser.');
+        }
+    });
+
+    // Modal logic
+    const searchForm = document.getElementById('searchForm');
+    const searchModal = document.getElementById('searchModal');
+    const closeModal = document.getElementById('closeModal');
+    const modalResults = document.getElementById('modalResults');
+    const bookingModal = document.getElementById('bookingModal');
+    const closeBookingModal = document.getElementById('closeBookingModal');
+    const bookingForm = document.getElementById('dashboard-booking-form');
+    const spotSelect = document.getElementById('dashboard-spot-select');
+    const ratePerHourEl = document.getElementById('dashboard-rate-per-hour');
+    const totalPriceEl = document.getElementById('dashboard-total-price');
+    const startTimeInput = document.getElementById('dashboard-start-time');
+    const endTimeInput = document.getElementById('dashboard-end-time');
+    const noSpotsMessage = document.getElementById('no-spots-message');
+
+    // Set dynamic min date for datetime inputs
+    function setMinDate() {
+        const nowISO = new Date().toISOString().slice(0,16);
+        startTimeInput.min = nowISO;
+        endTimeInput.min = nowISO;
+    }
+    setMinDate();
+
+    closeModal.onclick = () => { searchModal.style.display = 'none'; };
+    closeBookingModal.onclick = () => { bookingModal.style.display = 'none'; };
+    window.onclick = function(event) {
+        if (event.target == searchModal) searchModal.style.display = 'none';
+        if (event.target == bookingModal) bookingModal.style.display = 'none';
+    };
+
+    function calculateTotal() {
+        const rate = currentLotRate;
+        const start = new Date(startTimeInput.value);
+        const end = new Date(endTimeInput.value);
+        let hours = (end - start) / (1000 * 60 * 60);
+        totalPriceEl.textContent = (isNaN(hours) || hours <= 0) ? 0 : Math.ceil(hours) * rate;
+    }
+    [startTimeInput, endTimeInput, spotSelect].forEach(input => input.addEventListener('input', calculateTotal));
+
+    searchForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        document.getElementById('loadingSpinner').style.display = 'flex';
+        const formData = new FormData(searchForm);
+        fetch("{{ url_for('user.search_parking_ajax') }}", {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(results => {
+            let html = '';
+            if(results.length === 0) {
+                html = '<p>No results found.</p>';
+            } else {
+                html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+                results.forEach(lot => {
+                    html += `
+                        <div class='lot-card' style='border:1px solid #eee; border-radius:8px; padding:1rem;'>
+                            <h4>${lot.prime_location_name}</h4>
+                            <p><strong>Address:</strong> ${lot.address}</p>
+                            <p><strong>Pin Code:</strong> ${lot.pin_code}</p>
+                            <p><strong>Total Spots:</strong> ${lot.total_spots}</p>
+                            <p><strong>Available Spots:</strong> ${lot.available_spots}</p>
+                            <button class='lot-btn' style='background:#fff; color:#3498db; border:1.5px solid #3498db; border-radius:8px; padding:0.5rem 1.2rem; font-size:1rem; font-weight:600; cursor:pointer; margin-top:0.7rem; margin-right:0.5rem;' onclick='openViewSpotModal(${JSON.stringify(lot)})'>View Spots</button>
+                            <button class='lot-btn' style='background:linear-gradient(90deg,#27ae60 0%,#3498db 100%); color:#fff; border:none; border-radius:8px; padding:0.5rem 1.2rem; font-size:1rem; font-weight:600; cursor:pointer; margin-top:0.7rem;' onclick='openBookingModal(${JSON.stringify(lot)})' ${lot.spots.length === 0 ? 'disabled' : ''}>Book</button>
+                        </div>`;
+                });
+                html += '</div>';
+            }
+            modalResults.innerHTML = html;
+            searchModal.style.display = 'block';
+            document.getElementById('loadingSpinner').style.display = 'none';
+        })
+        .catch(() => {
+            modalResults.innerHTML = '<p>Error fetching results.</p>';
+            searchModal.style.display = 'block';
+            document.getElementById('loadingSpinner').style.display = 'none';
+        });
+    });
+
+    window.addEventListener('pageshow', function() {
+        document.getElementById('loadingSpinner').style.display = 'none';
+    });
+
+    // Modal DOM elements
+    const viewSpotModal = document.getElementById('viewSpotModal');
+    const closeViewSpotModal = document.getElementById('closeViewSpotModal');
+    const viewSpotLotTitle = document.getElementById('view-spot-lot-title');
+    const viewSpotLotInfo = document.getElementById('view-spot-lot-info');
+    const viewSpotList = document.getElementById('view-spot-list');
+
+    window.openViewSpotModal = function(lot) {
+        let allSpots = lot.all_spots || lot.spots || [];
+        viewSpotLotTitle.textContent = lot.prime_location_name;
+        viewSpotLotInfo.innerHTML = `
+            <div><strong>Address:</strong> ${lot.address}</div>
+            <div><strong>Pin Code:</strong> ${lot.pin_code}</div>
+            <div><strong>Rate:</strong> ₹${lot.rate}/hr</div>`;
+        let spotsHtml = '';
+        if(allSpots.length > 0) {
+            allSpots.forEach(spot => {
+                if(spot.status === 'A' || spot.status === undefined) {
+                    spotsHtml += `
+                        <div style='background:#e0f7fa; border:1px solid #27ae60; border-radius:8px; padding:0.7rem 1.1rem; margin:4px; display:flex; flex-direction:column; align-items:center;'>
+                            <span style='font-weight:600; color:#27ae60;'>Spot #${spot.number || spot.id}</span>
+                            <button style='margin-top:6px; background:linear-gradient(90deg,#27ae60 0%,#3498db 100%); color:#fff; border:none; border-radius:6px; padding:0.3rem 0.9rem; font-size:0.95rem; font-weight:600; cursor:pointer;' onclick='openBookingModalFromSpot(${spot.id}, ${JSON.stringify(lot)})'>Book</button>
+                        </div>`;
+                } else {
+                    spotsHtml += `
+                        <div style='background:#f8d7da; border:1.5px solid #dc3545; border-radius:8px; padding:0.7rem 1.1rem; margin:4px; display:flex; flex-direction:column; align-items:center;'>
+                            <span style='font-weight:600; color:#dc3545;'>Spot #${spot.number || spot.id}</span>
+                            <span style='font-size:0.9rem; color:#dc3545;'>Occupied</span>
+                        </div>`;
+                }
+            });
+        } else {
+            spotsHtml = '<div style="color:#7f8c8d; text-align:center;">No spots found for this lot.</div>';
+        }
+        viewSpotList.innerHTML = spotsHtml;
+        viewSpotModal.style.display = 'block';
+    };
+
+    closeViewSpotModal.onclick = () => { viewSpotModal.style.display = 'none'; };
+
+    window.openBookingModalFromSpot = function(spotId, lot) {
+        openBookingModal(lot, spotId);
+        viewSpotModal.style.display = 'none';
+    };
+
+    const dashboardLots = {{ parking_lots|tojson }};
+    window.openViewSpotModalById = function(lotId) {
+        const lot = dashboardLots.find(l => l.id === lotId);
+        if (lot) window.openViewSpotModal(lot);
+    };
+</script>
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+{% endblock %}

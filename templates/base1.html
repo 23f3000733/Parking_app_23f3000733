@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ParkEase - Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* Reset and base styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+            line-height: 1.6;
+        }
+        /* Header styles */
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .logo { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-icon {
+            background: #6366f1; color: #fff;
+            padding: 0.5rem; border-radius: 8px; font-size: 1.2rem;
+        }
+        .logo-text h1 { font-size: 1.5rem; font-weight: 700; color: #1e293b; }
+        .logo-text p { font-size: 0.875rem; color: #64748b; }
+        .header-actions { display: flex; align-items: center; gap: 1rem; }
+        .header-btn {
+            background: none; border: none; color: #64748b;
+            cursor: pointer; padding: 0.5rem; border-radius: 6px;
+            font-size: 1.1rem; transition: color 0.2s;
+        }
+        .header-btn:hover { color: #374151; }
+        .logout-btn {
+            background: #f1f5f9; color: #475569;
+            padding: 0.5rem 1rem; border-radius: 6px;
+            text-decoration: none; font-size: 0.875rem; font-weight: 500;
+            transition: background 0.2s;
+        }
+        .logout-btn:hover { background: #e2e8f0; }
+        /* Container */
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        /* Notification styles */
+        .notification-btn { position: relative; }
+        .notification-badge {
+            position: absolute; top: 2px; right: 2px;
+            background: #ef4444; color: #fff; font-size: 0.7rem; font-weight: 700;
+            border-radius: 50%; padding: 2px 6px; min-width: 18px; text-align: center; z-index: 2;
+        }
+        .notification-dropdown {
+            position: absolute; top: 60px; right: 40px; width: 340px;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.12); z-index: 1000; padding: 0;
+            animation: fadeIn 0.2s;
+        }
+        .notification-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 1.2rem 0.5rem 1.2rem; border-bottom: 1px solid #e2e8f0;
+            font-weight: 600; color: #1976d2;
+        }
+        .notification-close {
+            background: none; border: none; font-size: 1.2rem; color: #64748b; cursor: pointer;
+        }
+        .notification-list { max-height: 320px; overflow-y: auto; padding: 0.5rem 1.2rem 1rem 1.2rem; }
+        .notification-item {
+            padding: 0.7rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.98rem; color: #334155;
+            display: flex; align-items: flex-start; gap: 0.7rem;
+        }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-icon { color: #1976d2; font-size: 1.1rem; margin-top: 2px; }
+        .notification-time { color: #888; font-size: 0.85rem; margin-left: auto; }
+        .notification-empty { text-align: center; color: #888; padding: 1.5rem 0; font-size: 0.98rem; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px);}
+            to { opacity: 1; transform: none;}
+        }
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { padding: 1rem; }
+        }
+        /* --- Other styles omitted for brevity --- */
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon"><i class="fas fa-parking"></i></div>
+            <div class="logo-text">
+                <h1>ParkEase</h1>
+                <p>Welcome back, user@example.com</p>
+            </div>
+            <a href="{{ url_for('user.user_dashboard') }}" class="logout-btn">Dashboard</a>
+            <a href="{{ url_for('user.my_bookings') }}" class="logout-btn">My Bookings</a>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn notification-btn" id="notificationBtn">
+                <i class="fas fa-bell"></i>
+                <span class="notification-badge" id="notificationBadge" style="display:none;">0</span>
+            </button>
+            <button class="header-btn"><i class="fas fa-cog"></i></button>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </header>
+
+    <!-- Notification Dropdown -->
+    <div class="notification-dropdown" id="notificationDropdown" style="display:none;">
+        <div class="notification-header">
+            <span>Notifications</span>
+            <button class="notification-close" id="closeNotificationDropdown">&times;</button>
+        </div>
+        <div class="notification-list" id="notificationList">
+            <div class="notification-empty">No new notifications</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main style="margin: 2rem 50px;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        const notificationBtn = document.getElementById('notificationBtn');
+        const notificationDropdown = document.getElementById('notificationDropdown');
+        const closeNotificationDropdown = document.getElementById('closeNotificationDropdown');
+        const notificationBadge = document.getElementById('notificationBadge');
+        const notificationList = document.getElementById('notificationList');
+        const notifications = {{ notifications|default([])|tojson|safe }};
+
+        function renderNotifications() {
+            notificationList.innerHTML = '';
+            if (!notifications.length) {
+                notificationList.innerHTML = '<div class="notification-empty">No new notifications</div>';
+                notificationBadge.style.display = 'none';
+            } else {
+                notifications.forEach(n => {
+                    notificationList.innerHTML += `
+                        <div class="notification-item">
+                            <span class="notification-icon"><i class="fas ${n.icon}"></i></span>
+                            <span>${n.message}</span>
+                            <span class="notification-time">${n.time}</span>
+                        </div>
+                    `;
+                });
+                notificationBadge.textContent = notifications.length;
+                notificationBadge.style.display = 'inline-block';
+            }
+        }
+        renderNotifications();
+
+        notificationBtn.onclick = () => {
+            notificationDropdown.style.display = notificationDropdown.style.display === 'block' ? 'none' : 'block';
+        };
+        closeNotificationDropdown.onclick = () => {
+            notificationDropdown.style.display = 'none';
+        };
+        window.onclick = (e) => {
+            if (!notificationDropdown.contains(e.target) && !notificationBtn.contains(e.target)) {
+                notificationDropdown.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>
