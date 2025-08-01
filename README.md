@@ -5,6 +5,13 @@ A modern, full-featured vehicle parking management system built with Flask.
 ## 🚗 Project Overview
 This application allows users to search, book, and manage parking spots, while providing an admin dashboard for managing lots, spots, and viewing analytics. It features user authentication, booking history, feedback/rating, and a responsive UI.
 
+## Project Video Link
+https://drive.google.com/file/d/13J7nNYf6mK0Yp_p5avZYGeLsLgGcnaRh/view?usp=drive_link
+
+## Project Report Link
+https://docs.google.com/document/d/1-cdEpn6cOKBGVtIIlv8XHtrBqDfTrJKRM-Do9Yf1kRA/edit?usp=sharing
+
+
 ## ✨ Features
 - User registration, login, and dashboard
 - Search and book available parking spots
