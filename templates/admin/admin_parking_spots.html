@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="parking-spots-section">
+    <div class="section-header">
+        <h2>Parking Spots Overview</h2>
+        <!-- Filter controls for lot name, status, and spot number -->
+        <div class="filter-controls" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center;">
+            <input
+                type="text"
+                id="lotFilter"
+                placeholder="Filter by lot name..."
+                style="padding: 0.5rem; border-radius: 6px; border: 1px solid #e5e7eb;"
+            >
+            <select
+                id="statusFilter"
+                style="padding: 0.5rem; border-radius: 6px; border: 1px solid #e5e7eb;"
+            >
+                <option value="">All Spots</option>
+                <option value="available">Available</option>
+                <option value="occupied">Occupied</option>
+            </select>
+            <input
+                type="text"
+                id="spotSearch"
+                placeholder="Search spot number..."
+                style="padding: 0.5rem; border-radius: 6px; border: 1px solid #e5e7eb;"
+            >
+        </div>
+    </div>
+
+    <div class="spots-grid">
+        {% for lot in parking_lots %}
+            <div class="spot-card">
+                <!-- Lot name -->
+                <h3>{{ lot.prime_location_name }}</h3>
+                {% set total = lot.spots|length %}
+                {% set occupied = lot.spots | selectattr('status', 'ne', 'A') | list | length %}
+                <!-- Occupied/total spots info -->
+                <p class="spot-subtitle">{{ occupied }}/{{ total }} spots occupied</p>
+
+                <div class="spot-numbers">
+                    {% for spot in lot.spots %}
+                        <div style="display:flex; flex-direction:column; align-items:center;">
+                            <!-- Spot number with status styling -->
+                            <span class="spot-box {{ 'occupied' if spot.status != 'A' else 'available' }}">
+                                {{ spot.spot_number }}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <p>No parking lots available.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+    // Get filter elements
+    const lotFilter = document.getElementById('lotFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const spotSearch = document.getElementById('spotSearch');
+    const spotCards = document.querySelectorAll('.spot-card');
+
+    // Filter function for parking spots
+    function filterSpots() {
+        const lotValue = lotFilter.value.toLowerCase();
+        const statusValue = statusFilter.value;
+        const spotValue = spotSearch.value.trim();
+
+        spotCards.forEach(card => {
+            const lotName = card.querySelector('h3').textContent.toLowerCase();
+            let show = true;
+
+            // Filter by lot name
+            if (lotValue && !lotName.includes(lotValue)) show = false;
+
+            // Filter by spot status
+            if (statusValue) {
+                const hasStatus = Array.from(card.querySelectorAll('.spot-box')).some(box =>
+                    statusValue === 'available'
+                        ? box.classList.contains('available')
+                        : box.classList.contains('occupied')
+                );
+                if (!hasStatus) show = false;
+            }
+
+            // Filter by spot number
+            if (spotValue) {
+                const hasSpot = Array.from(card.querySelectorAll('.spot-box')).some(box =>
+                    box.textContent.trim().includes(spotValue)
+                );
+                if (!hasSpot) show = false;
+            }
+
+            // Show or hide card based on filters
+            card.style.display = show ? '' : 'none';
+        });
+    }
+
+    // Attach event listeners to filters
+    lotFilter.addEventListener('input', filterSpots);
+    statusFilter.addEventListener('change', filterSpots);
+    spotSearch.addEventListener('input', filterSpots);
+});
+</script>
+
+<style>
+/* Parking spots section styling */
+.parking-spots-section {
+    padding: 2rem;
+}
+
+/* Section header styling */
+.section-header {
+    margin-bottom: 1.5rem;
+}
+.section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+.section-header p {
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Grid layout for spot cards */
+.spots-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+/* Individual spot card styling */
+.spot-card {
+    flex: 1 1 300px;
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e5e7eb;
+}
+.spot-card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+.spot-subtitle {
+    color: #6b7280;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+/* Grid for spot numbers */
+.spot-numbers {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+}
+
+/* Spot box styling */
+.spot-box {
+    display: inline-block;
+    padding: 0.6rem 0.8rem;
+    text-align: center;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    background-color: #ecfdf5;
+    color: #065f46;
+}
+
+/* Styling for occupied spots */
+.spot-box.occupied {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Filter controls styling */
+.filter-controls input,
+.filter-controls select {
+    font-size: 1rem;
+    margin-right: 0.5rem;
+}
+</style>
+{% endblock %}
