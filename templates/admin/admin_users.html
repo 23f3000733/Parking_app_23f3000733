@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Admin Users Section -->
+<div class="admin-users-section">
+    <h2 class="section-title">Registered Users</h2>
+    <p class="section-subtitle">All users registered on the platform</p>
+
+    <div class="users-list">
+        {% for user in users %}
+        <!-- User Card -->
+        <div class="user-card">
+            <div class="user-info">
+                <div class="user-icon">👤</div>
+                <div>
+                    <!-- Username -->
+                    <div class="user-email">{{ user.username }}</div>
+                    <!-- Secondary email or main email -->
+                    <div class="user-secondary">{{ user.secondary_email or user.email }}</div>
+                </div>
+            </div>
+            <div class="user-meta">
+                <!-- Total bookings (default 0) -->
+                <span class="user-bookings">{{ user.total_bookings or 0 }} bookings</span>
+            </div>
+        </div>
+        {% else %}
+        <!-- Empty State if no users -->
+        <div class="empty-state">
+            <p>No users registered yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Styles for Admin Users Section -->
+<style>
+    /* Container for admin users section */
+    .admin-users-section {
+        margin-top: 2rem;
+        padding: 1rem;
+        background-color: #f9fafb;
+    }
+
+    /* Section title styling */
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #111827;
+    }
+
+    /* Section subtitle styling */
+    .section-subtitle {
+        font-size: 0.95rem;
+        color: #6b7280;
+        margin-bottom: 1.5rem;
+    }
+
+    /* List of user cards */
+    .users-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    /* Individual user card styling */
+    .user-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #ffffff;
+        padding: 1rem 1.25rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+
+    /* User info section inside card */
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    /* User icon styling */
+    .user-icon {
+        width: 40px;
+        height: 40px;
+        background-color: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 1.2rem;
+    }
+
+    /* Username styling */
+    .user-email {
+        font-weight: 600;
+        color: #111827;
+    }
+
+    /* Secondary email styling */
+    .user-secondary {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    /* User meta info (bookings) */
+    .user-meta {
+        font-size: 0.875rem;
+        color: #4b5563;
+    }
+</style>
+{% endblock %}
