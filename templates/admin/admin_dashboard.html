@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="admin-dashboard">
+
+    <!-- Parking Lots Management Section -->
+    <section class="parking-lots">
+        <div class="section-header">
+            <div>
+                <h3>Parking Lots Management</h3>
+                <p>Manage your parking locations</p>
+            </div>
+            <!-- Button to open Add Parking Lot Modal -->
+            <button class="btn-add" onclick="openModal('addLotModal')">➕ Add Parking Lot</button>
+        </div>
+
+        <div class="lots-grid">
+            {% for lot in parking_lots %}
+                {% set available = lot.spots | selectattr('status', 'equalto', 'A') | list %}
+                <div class="lot-card">
+                    <div class="lot-header">
+                        <h4>{{ lot.prime_location_name }}</h4>
+                        <!-- Status badge shows if spots are available -->
+                        <span class="status-badge {{ 'status-available' if available else 'status-occupied' }}">
+                            {{ 'Available' if available else 'Full' }}
+                        </span>
+                    </div>
+                    <div class="lot-details">
+                        <p><strong>📍 Address:</strong> {{ lot.address }}</p>
+                        <p><strong>📮 Pin Code:</strong> {{ lot.pin_code }}</p>
+                        <p><strong>💰 Rate:</strong> ₹{{ lot.hourly_rate or 5 }}/hr</p>
+                        <p><strong>🅿️ Total Spots:</strong> {{ lot.spots | length }}</p>
+                        <p><strong>✅ Available:</strong> {{ available | length }}/{{ lot.spots | length }}</p>
+                    </div>
+                    <div class="lot-actions">
+                        <!-- Button to open Add Spots Modal -->
+                        <button class="btn" onclick="openAddSpotsModal({{ lot.id }}, '{{ lot.prime_location_name|escape }}')">Add Spots</button>
+                        <!-- Link to view/delete lot -->
+                        <a href="{{ url_for('admin.view_delete_lot', lot_id=lot.id) }}" class="btn-secondary">👁️ View</a>
+                        <!-- Button to open Edit Lot Modal, passes lot data via data attributes -->
+                        <a href="javascript:void(0);" class="btn-secondary"
+                             data-lot-id="{{ lot.id }}"
+                             data-lot-name="{{ lot.prime_location_name }}"
+                             data-lot-address="{{ lot.address }}"
+                             data-lot-pin="{{ lot.pin_code }}"
+                             data-lot-rate="{{ lot.price or lot.hourly_rate }}"
+                             onclick="openEditLotModal(this)">✏️ Edit</a>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Empty state if no parking lots exist -->
+                <div class="empty-state">
+                    <div class="empty-icon">🅿️</div>
+                    <h3>No Parking Lots Found</h3>
+                    <p>Start by adding your first parking lot to manage spots and bookings.</p>
+                    <button class="btn-add" onclick="openModal('addLotModal')">➕ Add Your First Parking Lot</button>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Recent Activity Section -->
+    <section class="recent-activity">
+        <div class="section-header">
+            <h3>Recent Activity</h3>
+            <a href="#" class="view-all">View All</a>
+        </div>
+        <div class="activity-list">
+            {% for item in recent_activities %}
+                <div class="activity-item">
+                    <div class="activity-icon">{{ item.icon }}</div>
+                    <div class="activity-content">
+                        <p><strong>{{ item.message }}</strong></p>
+                        <span class="activity-time">{{ item.timestamp.strftime('%I:%M %p, %d %b') }}</span>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Empty state if no recent activities -->
+                <p class="text-muted">No recent activity to show.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Add Parking Lot Modal -->
+    <div class="modal" id="addLotModal">
+        <div class="modal-content">
+            <h2>Add New Parking Lot</h2>
+            <p>Create a new parking location</p>
+            <!-- Form to add a new parking lot -->
+            <form method="POST" action="{{ url_for('admin.add_parking_lot') }}">
+                <label>Location Name</label>
+                <input type="text" name="lot_name" placeholder="e.g., Downtown Mall" required>
+
+                <label>Address</label>
+                <textarea name="address" rows="2" placeholder="Full address of the parking lot" required></textarea>
+
+                <label>Pin Code</label>
+                <input type="text" name="pincode" placeholder="e.g., 12345" required>
+
+                <label>Price per Hour (₹)</label>
+                <input type="number" name="price" step="0.01" placeholder="e.g., 5.00" required>
+
+                <label>Maximum Number of Spots</label>
+                <input type="number" name="maximum_spots" placeholder="e.g., 50" required>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="closeModal('addLotModal')">Cancel</button>
+                    <button type="submit" class="btn-submit">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Spots Modal -->
+    <div class="modal" id="addSpotsModal">
+        <div class="modal-content">
+            <h2 id="addSpotsModalTitle">Add Spots</h2>
+            <!-- Form to add spots to a parking lot -->
+            <form id="addSpotsForm" method="POST">
+                <label for="number_of_spots">Number of Spots to Add:</label>
+                <input type="number" id="number_of_spots" name="number_of_spots" min="1" required>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="closeModal('addSpotsModal')">Cancel</button>
+                    <button type="submit" class="btn-submit">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Lot Modal -->
+    <div class="modal" id="editLotModal">
+        <div class="modal-content">
+            <h2>Edit Parking Lot</h2>
+            <!-- Form to edit parking lot details -->
+            <form id="editLotForm" method="POST">
+                <label for="edit_lot_name">Location Name</label>
+                <input type="text" id="edit_lot_name" name="name" required>
+
+                <label for="edit_lot_address">Address</label>
+                <textarea id="edit_lot_address" name="address" rows="2" required></textarea>
+
+                <label for="edit_lot_pin_code">Pin Code</label>
+                <input type="text" id="edit_lot_pin_code" name="pin_code" required>
+
+                <label for="edit_lot_rate">Hourly Rate (₹)</label>
+                <input type="number" id="edit_lot_rate" name="rate" min="0" step="0.1" required>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="closeModal('editLotModal')">Cancel</button>
+                    <button type="submit" class="btn-submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Backdrop */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            overflow: auto;
+            transition: all 0.3s ease;
+        }
+        /* Modal Box */
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            font-family: 'Segoe UI', sans-serif;
+            position: relative;
+        }
+        .modal-content h2 {
+            margin-bottom: 0.3rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .modal-content p {
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        .modal-content label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+            margin-top: 1rem;
+        }
+        .modal-content input,
+        .modal-content textarea {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            transition: border 0.3s ease;
+            background-color: #f9fafb;
+        }
+        .modal-content input:focus,
+        .modal-content textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background-color: #fff;
+        }
+        .modal-content .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            gap: 1rem;
+        }
+        .modal-content .btn-cancel,
+        .modal-content .btn-submit {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .modal-content .btn-cancel {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        .modal-content .btn-cancel:hover {
+            background-color: #e5e7eb;
+        }
+        .modal-content .btn-submit {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .modal-content .btn-submit:hover {
+            background-color: #2563eb;
+        }
+    </style>
+
+    <script>
+        // Opens a modal by ID
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+        // Closes a modal by ID
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        // Closes modal when clicking outside modal content
+        window.onclick = function(event) {
+            ['addLotModal', 'addSpotsModal', 'editLotModal'].forEach(function(id) {
+                var modal = document.getElementById(id);
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            });
+        };
+        // Opens Add Spots Modal and sets form action and title
+        function openAddSpotsModal(lotId, lotName) {
+            document.getElementById('addSpotsModalTitle').textContent = 'Add Spots to ' + lotName;
+            document.getElementById('addSpotsForm').action = '/admin/add_spots/' + lotId;
+            openModal('addSpotsModal');
+        }
+        // Opens Edit Lot Modal and populates form fields with lot data
+        function openEditLotModal(btn) {
+            document.getElementById('edit_lot_name').value = btn.getAttribute('data-lot-name');
+            document.getElementById('edit_lot_address').value = btn.getAttribute('data-lot-address');
+            document.getElementById('edit_lot_pin_code').value = btn.getAttribute('data-lot-pin');
+            document.getElementById('edit_lot_rate').value = btn.getAttribute('data-lot-rate');
+            document.getElementById('editLotForm').action = '/admin/lot/' + btn.getAttribute('data-lot-id') + '/edit';
+            openModal('editLotModal');
+        }
+    </script>
+{% endblock %}
