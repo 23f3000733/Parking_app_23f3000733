@@ -5,19 +5,93 @@ from models import db, ParkingLot, ParkingSpot, Reservation
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
 
-def get_active_bookings(user_id, now):
+# ---------------------------
+# Helper Functions
+# ---------------------------
+
+def validate_today_booking(start_dt, end_dt):
+    today = datetime.now().date()
+    if start_dt.date() != today or end_dt.date() != today:
+        raise ValueError("You can only book for today.")
+    if end_dt <= start_dt:
+        raise ValueError("End time must be after start time.")
+    if start_dt < datetime.now():
+        raise ValueError("Start time cannot be in the past.")
+
+def check_spot_availability(spot, start_dt, end_dt):
+    """Ensure the spot is free during the requested window."""
+    overlapping = Reservation.query.filter(
+        Reservation.spot_id == spot.id,
+        Reservation.leaving_timestamp > start_dt,
+        Reservation.parking_timestamp < end_dt
+    ).first()
+    if overlapping:
+        raise ValueError("This spot is already booked in the selected time window.")
+
+def calculate_booking_cost(lot, start_dt, end_dt):
+    """Calculate cost rounded up to the nearest hour."""
+    hours = (end_dt - start_dt).total_seconds() / 3600
+    return lot.price * int(hours + 0.9999)
+
+def create_reservation(user_id, spot, lot, start_dt, end_dt, total_price, rating, feedback):
+    reservation = Reservation(
+        spot_id=spot.id,
+        user_id=user_id,
+        parking_timestamp=start_dt,
+        leaving_timestamp=end_dt,
+        parking_cost=total_price,
+        rating=rating if rating > 0 else None,
+        feedback=feedback if feedback else None
+    )
+
+    try:
+        spot.status = 'O'  # mark spot as occupied
+        db.session.add(reservation)
+        db.session.commit()
+        print(f"[DB COMMIT SUCCESS] Reservation saved with ID: {reservation.id} "
+              f"for Spot #{spot.id}, User #{user_id}, "
+              f"from {start_dt} to {end_dt}, Cost: ₹{total_price}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB COMMIT ERROR] {e}")
+        raise ValueError(f"Error committing reservation: {e}")
+
+    return reservation
+
+    
+def get_active_bookings(user_id, now=None):
+    """Return active reservations for a user (today only)."""
+    if now is None:
+        now = datetime.now()
+    today = now.date()
     return Reservation.query.filter(
         Reservation.user_id == user_id,
-        Reservation.parking_timestamp <= now,
-        (Reservation.leaving_timestamp == None) | (Reservation.leaving_timestamp >= now)
+        Reservation.parking_timestamp >= datetime.combine(today, datetime.min.time()),
+        Reservation.leaving_timestamp <= datetime.combine(today, datetime.max.time())
     ).all()
 
 def get_total_bookings(user_id):
+    """Return all reservations made by a user."""
     return Reservation.query.filter_by(user_id=user_id).all()
+
 
 def get_total_spent(user_id):
     return db.session.query(db.func.coalesce(db.func.sum(Reservation.parking_cost), 0))\
         .filter(Reservation.user_id == user_id).scalar()
+
+def auto_release_expired_reservations():
+    now = datetime.now()
+    expired_reservations = Reservation.query.filter(
+        Reservation.leaving_timestamp < now,
+        Reservation.spot.has(status='O')  # spot is still marked occupied
+    ).all()
+
+    for reservation in expired_reservations:
+        reservation.spot.status = 'A'  # free the spot
+        db.session.add(reservation)
+
+    if expired_reservations:
+        db.session.commit()
 
 @user_bp.route('/dashboard', methods=['GET', 'POST'])
 @login_required
@@ -88,119 +162,140 @@ def view_available_spots(lot_id):
 @user_bp.route('/book', methods=['POST'])
 @login_required
 def book_spot():
-    spot_id = request.form.get('spot_id')
-    start_time = request.form.get('start_time')
-    end_time = request.form.get('end_time')
-    rating = int(request.form.get('rating') or 0)
-    feedback = request.form.get('feedback', '').strip()
+    try:
+        spot_id = request.form.get('spot_id')
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        rating = int(request.form.get('rating') or 0)
+        feedback = request.form.get('feedback', '').strip()
 
-    spot = ParkingSpot.query.get_or_404(spot_id)
-    lot = spot.lot
-    start_dt = datetime.fromisoformat(start_time)
-    end_dt = datetime.fromisoformat(end_time)
-    hours = (end_dt - start_dt).total_seconds() / 3600
+        spot = ParkingSpot.query.get_or_404(spot_id)
+        lot = spot.lot
 
-    if hours <= 0:
-        flash("End time must be after start time.", "danger")
-        return redirect(url_for('user.view_available_spots', lot_id=lot.id))
+        # Parse datetime
+        start_dt = datetime.fromisoformat(start_time)
+        end_dt = datetime.fromisoformat(end_time)
 
-    now = datetime.now()
-    active_reservation = Reservation.query.filter(
-        Reservation.spot_id == spot.id,
-        Reservation.parking_timestamp <= now,
-        Reservation.leaving_timestamp > now
-    ).first()
+        # Step 1: Validate "today only"
+        validate_today_booking(start_dt, end_dt)
 
-    if active_reservation and (
-        (start_dt < active_reservation.leaving_timestamp and end_dt > active_reservation.parking_timestamp)
-    ):
-        flash("This spot is currently occupied for the selected time window.", "danger")
-        return redirect(url_for('user.view_available_spots', lot_id=lot.id))
+        # Step 2: Check availability
+        check_spot_availability(spot, start_dt, end_dt)
 
-    total_price = lot.price * int(hours + 0.9999)
-    if start_dt <= now < end_dt:
-        spot.status = 'O'
+        # Step 3: Calculate price
+        total_price = calculate_booking_cost(lot, start_dt, end_dt)
 
-    reservation = Reservation(
-        spot_id=spot.id,
-        user_id=current_user.id,
-        parking_timestamp=start_dt,
-        leaving_timestamp=end_dt,
-        parking_cost=total_price,
-        rating=rating,
-        feedback=feedback
-    )
-    db.session.add(reservation)
-    db.session.commit()
-    flash(f"Spot #{spot.id} booked from {start_dt} to {end_dt}! Total: ₹{total_price}", "success")
+        # Step 4: Create reservation
+        reservation = create_reservation(
+            user_id=current_user.id,
+            spot=spot,
+            lot=lot,
+            start_dt=start_dt,
+            end_dt=end_dt,
+            total_price=total_price,
+            rating=rating,
+            feedback=feedback
+        )
+
+        flash(
+            f"Spot #{reservation.spot_id} booked today "
+            f"from {start_dt.strftime('%H:%M')} to {end_dt.strftime('%H:%M')}! "
+            f"Total: ₹{total_price}",
+            "success"
+        )
+        print(f"[BOOKING SUCCESS] User #{current_user.id} booked Spot #{spot.id} "
+              f"from {start_dt} to {end_dt}, Cost: ₹{total_price}")
+        
+    except ValueError as e:
+        flash(str(e), "danger")
+        print(f"[Error] {e}")
+        raise ValueError(f"Error committing reservation: {e}")
+
     return redirect(url_for('user.my_bookings'))
 
 @user_bp.route('/my_bookings')
 @login_required
 def my_bookings():
     now = datetime.now()
+    today = now.date()
+
+    # Release expired spots first
+    auto_release_expired_reservations()
+    show_rating_modal = request.args.get("show_rating_modal", False)
+    rating_booking_id = request.args.get("booking_id")
+
+    # Active = reservations for today that are still valid
     active = Reservation.query.filter(
         Reservation.user_id == current_user.id,
-        Reservation.parking_timestamp > now,
-        Reservation.leaving_timestamp > now
-    ).all()
+        Reservation.parking_timestamp >= datetime.combine(today, datetime.min.time()),
+        Reservation.leaving_timestamp >= now
+    ).order_by(Reservation.parking_timestamp.asc()).all()
+
+    # Past = reservations already ended
     past = Reservation.query.filter(
         Reservation.user_id == current_user.id,
-        Reservation.leaving_timestamp <= now
-    ).order_by(Reservation.leaving_timestamp.asc()).all()
+        Reservation.leaving_timestamp < now
+    ).order_by(Reservation.leaving_timestamp.desc()).all()
 
+    # Attach location names
     for booking in active + past:
         booking.location = booking.lot.prime_location_name if booking.lot else 'Unknown Location'
 
     return render_template(
-        'user/my_bookings.html',
-        active_bookings=active,
-        past_bookings=past,
-        datetime=datetime,
-        timedelta=timedelta,
-        current_time=datetime.utcnow()
-    )
+    'user/my_bookings.html',
+    active_bookings=active,
+    past_bookings=past,
+    current_time=datetime.utcnow(),
+    show_rating_modal=show_rating_modal,
+    rating_booking_id=rating_booking_id
+)
+
 
 @user_bp.route('/checkout/<int:booking_id>', methods=['POST'])
 @login_required
 def checkout(booking_id):
     booking = Reservation.query.get_or_404(booking_id)
+
+    # Validate booking belongs to user and not already checked out
     if booking.user_id != current_user.id or booking.leaving_timestamp:
         flash("Invalid or already checked out", "warning")
         return redirect(url_for('user.my_bookings'))
 
+    # Mark booking as checked out
     booking.leaving_timestamp = datetime.now()
     booking.spot.status = 'A'
     db.session.commit()
+
     flash("Checked out successfully!", "success")
 
-    return render_template(
-        'user/my_bookings.html',
-        active_bookings=Reservation.query.filter(
-            Reservation.user_id == current_user.id,
-            Reservation.leaving_timestamp == None
-        ).all(),
-        past_bookings=Reservation.query.filter(
-            Reservation.user_id == current_user.id,
-            Reservation.leaving_timestamp != None
-        ).all(),
-        show_rating_modal=True,
-        rating_booking_id=booking.id
-    )
+    # ✅ Redirect instead of rendering directly
+    return redirect(url_for('user.my_bookings', show_rating_modal=True, booking_id=booking.id))
 
-@user_bp.route('/cancel_booking/<int:booking_id>', methods=['POST'])
+
+@user_bp.route('/cancel/<int:booking_id>', methods=['POST'])
 @login_required
 def cancel_booking(booking_id):
-    booking = Reservation.query.get_or_404(booking_id)
-    if booking.user_id != current_user.id:
-        flash("Unauthorized", "danger")
-        return redirect(url_for('user.my_bookings'))
+    try:
+        booking = Reservation.query.get_or_404(booking_id)
 
-    booking.spot.status = 'A'
-    db.session.delete(booking)
-    db.session.commit()
-    flash("Booking cancelled and spot released", "info")
+        if booking.user_id != current_user.id:
+            flash("Unauthorized action.", "danger")
+            return redirect(url_for('user.my_bookings'))
+
+        # Free the spot
+        booking.spot.status = 'A'
+        booking.leaving_timestamp = datetime.utcnow()
+
+        db.session.commit()
+        flash(f"Booking #{booking.id} has been cancelled successfully!", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"[CANCEL ERROR] {e}")
+        flash("Error cancelling booking.", "danger")
+
     return redirect(url_for('user.my_bookings'))
+
 
 @user_bp.route('/search_parking_ajax', methods=['POST'])
 @login_required

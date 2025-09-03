@@ -95,7 +95,15 @@
     {% if parking_lots %}
         {% for lot in parking_lots %}
             <div class="lot-card">
-                <h4 class="lot-name">{{ lot.prime_location_name }}</h4>
+                <div class="lot-map"><h4 class="lot-name">{{ lot.prime_location_name }}</h4>
+                <a href="https://www.google.com/maps/search/?api=1&query={{ (lot.prime_location_name ~ ' ' ~ lot.address) | urlencode }}" target="_blank"
+class="map-btn">
+   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+     <path fill="#EA4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+     <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+   </svg>
+</a></div>
+
                 {% set all_ratings = [] %}
                 {% for spot in lot.spots %}
                     {% for res in spot.reservations %}
@@ -118,6 +126,7 @@
                         <span class="rating-value">{{ (all_ratings|sum / all_ratings|length)|round(2) }}/5</span>
                     </div>
                 {% endif %}
+
                 <p class="lot-address">{{ lot.address }} - {{ lot.pin_code }}</p>
                 {% set available_spots = lot.spots | selectattr('status', 'equalto', 'A') | list %}
                 <p class="lot-spots">Available Spots: {{ available_spots | length }}</p>
@@ -161,6 +170,31 @@
     .lot-rating { margin-bottom: 0.3rem; }
     .stars { color: #facc15; font-size: 1.1rem; }
     .rating-value { margin-left: 0.4em; color: #333; font-weight: 600; font-size: 0.98em; }
+    .map-btn {
+    display: contents;
+    align-items: center;
+    gap: 6px;
+    background: #10b981;
+    color: #fff;
+    padding: 6px 12px;
+    margin-top: 8px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background 0.2s;
+}
+.map-btn:hover {
+    background: #059669;
+}
+.map-btn svg {
+    width: 18px;
+    height: 18px;
+}
+.lot-map {
+    display: flex;
+}
+
 </style>
 <script>
     // Location detection

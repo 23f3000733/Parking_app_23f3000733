@@ -1,8 +1,10 @@
 <!-- Booking Modal -->
+<!-- Booking Modal -->
 <div id="bookingModal" class="modal">
     <div class="modal-content">
         <span id="closeBookingModal" class="close">&times;</span>
         <h2>Book a Spot</h2>
+
         <form id="dashboard-booking-form" method="post" action="{{ url_for('user.book_spot') }}">
             <input type="hidden" name="spot_id" id="dashboard-spot-id">
 
@@ -10,19 +12,33 @@
             <select id="dashboard-spot-select" name="spot_id" required></select>
 
             <label for="dashboard-start-time">Start Time:</label>
-            <input type="datetime-local" id="dashboard-start-time" name="start_time" required>
+            <input type="datetime-local"
+                   id="dashboard-start-time"
+                   name="start_time"
+                   required
+                   min="{{ datetime.now().strftime('%Y-%m-%dT%H:%M') }}"
+                   max="{{ datetime.now().replace(hour=23, minute=59).strftime('%Y-%m-%dT%H:%M') }}"
+                   value="{{ datetime.now().strftime('%Y-%m-%dT%H:%M') }}">
 
             <label for="dashboard-end-time">End Time:</label>
-            <input type="datetime-local" id="dashboard-end-time" name="end_time" required>
+            <input type="datetime-local"
+                   id="dashboard-end-time"
+                   name="end_time"
+                   required
+                   min="{{ datetime.now().strftime('%Y-%m-%dT%H:%M') }}"
+                   max="{{ datetime.now().replace(hour=23, minute=59).strftime('%Y-%m-%dT%H:%M') }}"
+                   value="{{ (datetime.now() + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M') }}">
 
             <p>Rate per hour: ₹<span id="dashboard-rate-per-hour">0</span></p>
             <p>Total: ₹<span id="dashboard-total-price">0</span></p>
 
             <button type="submit" class="book-confirm-btn">Pay & Book</button>
         </form>
+
         <div id="no-spots-message">No spots available for booking.</div>
     </div>
 </div>
+
 
 <style>
     .modal {

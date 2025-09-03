@@ -32,20 +32,32 @@
                         <p><strong>🅿️ Total Spots:</strong> {{ lot.spots | length }}</p>
                         <p><strong>✅ Available:</strong> {{ available | length }}/{{ lot.spots | length }}</p>
                     </div>
-                    <div class="lot-actions">
-                        <!-- Button to open Add Spots Modal -->
-                        <button class="btn" onclick="openAddSpotsModal({{ lot.id }}, '{{ lot.prime_location_name|escape }}')">Add Spots</button>
-                        <!-- Link to view/delete lot -->
-                        <a href="{{ url_for('admin.view_delete_lot', lot_id=lot.id) }}" class="btn-secondary">👁️ View</a>
-                        <!-- Button to open Edit Lot Modal, passes lot data via data attributes -->
-                        <a href="javascript:void(0);" class="btn-secondary"
-                             data-lot-id="{{ lot.id }}"
-                             data-lot-name="{{ lot.prime_location_name }}"
-                             data-lot-address="{{ lot.address }}"
-                             data-lot-pin="{{ lot.pin_code }}"
-                             data-lot-rate="{{ lot.price or lot.hourly_rate }}"
-                             onclick="openEditLotModal(this)">✏️ Edit</a>
-                    </div>
+<!-- Inside lot-actions in lot-card -->
+<div class="lot-actions">
+    <button class="btn" onclick="openAddSpotsModal({{ lot.id }}, '{{ lot.prime_location_name|escape }}')">Add Spots</button>
+    
+    <!-- Map Button -->
+    {% if lot.latitude and lot.longitude %}
+    <a href="https://www.google.com/maps?q={{ lot.latitude }},{{ lot.longitude }}" target="_blank" class="btn-secondary" title="View on Map">
+        <!-- Google Maps SVG Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 384 512" width="16" height="16">
+            <path d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 86 86 0 192 0s192 86 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-39.464 0zM192 272a80 80 0 1 0 0-160 80 80 0 0 0 0 160z"/>
+        </svg>
+        Map
+    </a>
+    {% endif %}
+
+    <!-- Edit button -->
+    <a href="javascript:void(0);" class="btn-secondary"
+         data-lot-id="{{ lot.id }}"
+         data-lot-name="{{ lot.prime_location_name }}"
+         data-lot-address="{{ lot.address }}"
+         data-lot-pin="{{ lot.pin_code }}"
+         data-lot-rate="{{ lot.price or lot.hourly_rate }}"
+         data-lot-lat="{{ lot.latitude or '' }}"
+         data-lot-lng="{{ lot.longitude or '' }}"
+         onclick="openEditLotModal(this)">✏️ Edit</a>
+</div>
                 </div>
             {% else %}
                 <!-- Empty state if no parking lots exist -->
@@ -87,27 +99,29 @@
             <h2>Add New Parking Lot</h2>
             <p>Create a new parking location</p>
             <!-- Form to add a new parking lot -->
-            <form method="POST" action="{{ url_for('admin.add_parking_lot') }}">
-                <label>Location Name</label>
-                <input type="text" name="lot_name" placeholder="e.g., Downtown Mall" required>
+<form method="POST" action="{{ url_for('admin.add_lot') }}">
+    <label>Location Name</label>
+    <input type="text" name="name" placeholder="e.g., Downtown Mall" required>
 
-                <label>Address</label>
-                <textarea name="address" rows="2" placeholder="Full address of the parking lot" required></textarea>
+    <label>Address</label>
+    <textarea name="address" rows="2" placeholder="Full address of the parking lot" required></textarea>
 
-                <label>Pin Code</label>
-                <input type="text" name="pincode" placeholder="e.g., 12345" required>
+    <label>Pin Code</label>
+    <input type="text" name="pin_code" placeholder="e.g., 12345" required>
 
-                <label>Price per Hour (₹)</label>
-                <input type="number" name="price" step="0.01" placeholder="e.g., 5.00" required>
+    <label>Price per Hour (₹)</label>
+    <input type="number" name="price" step="0.01" placeholder="e.g., 5.00" required>
 
-                <label>Maximum Number of Spots</label>
-                <input type="number" name="maximum_spots" placeholder="e.g., 50" required>
+    <label>Maximum Number of Spots</label>
+    <input type="number" name="maximum_number_of_spots" placeholder="e.g., 50" required>
 
-                <div class="modal-buttons">
-                    <button type="button" class="btn-cancel" onclick="closeModal('addLotModal')">Cancel</button>
-                    <button type="submit" class="btn-submit">Create</button>
-                </div>
-            </form>
+
+    <div class="modal-buttons">
+        <button type="button" class="btn-cancel" onclick="closeModal('addLotModal')">Cancel</button>
+        <button type="submit" class="btn-submit">Create</button>
+    </div>
+</form>
+
         </div>
     </div>
 
@@ -144,6 +158,12 @@
 
                 <label for="edit_lot_rate">Hourly Rate (₹)</label>
                 <input type="number" id="edit_lot_rate" name="rate" min="0" step="0.1" required>
+                <label for="edit_lot_lat">Latitude</label>
+                <input type="number" id="edit_lot_lat" name="latitude" step="any">
+
+                <label for="edit_lot_lng">Longitude</label>
+                <input type="number" id="edit_lot_lng" name="longitude" step="any">
+
 
                 <div class="modal-buttons">
                     <button type="button" class="btn-cancel" onclick="closeModal('editLotModal')">Cancel</button>
@@ -272,8 +292,11 @@
             document.getElementById('edit_lot_address').value = btn.getAttribute('data-lot-address');
             document.getElementById('edit_lot_pin_code').value = btn.getAttribute('data-lot-pin');
             document.getElementById('edit_lot_rate').value = btn.getAttribute('data-lot-rate');
+            document.getElementById('edit_lot_lat').value = btn.getAttribute('data-lot-lat');
+            document.getElementById('edit_lot_lng').value = btn.getAttribute('data-lot-lng');
             document.getElementById('editLotForm').action = '/admin/lot/' + btn.getAttribute('data-lot-id') + '/edit';
             openModal('editLotModal');
         }
+
     </script>
 {% endblock %}

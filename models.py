@@ -21,6 +21,10 @@ class ParkingLot(db.Model):
     pin_code = db.Column(db.String(10), nullable=False) # pin code of the parking lot
     maximum_number_of_spots = db.Column(db.Integer, nullable=False) # maximum number of parking spots in the lot
 
+    # Optional for accurate map links
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+
     spots = db.relationship('ParkingSpot', backref='lot', cascade="all, delete", lazy=True) # relationship to ParkingSpot model
 
 # ParkingSpot models for the parking system

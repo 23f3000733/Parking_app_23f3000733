@@ -22,6 +22,11 @@ from models import User
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+from datetime import datetime, timedelta
+
+@app.context_processor
+def inject_datetime():
+    return dict(datetime=datetime, timedelta=timedelta)
 
 # Register blueprints
 app.register_blueprint(admin_bp)

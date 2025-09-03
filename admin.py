@@ -7,17 +7,25 @@ from utils import admin_required
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+
+# ----------------------------
+# Dashboard Stats Helper
+# ----------------------------
 def get_dashboard_stats():
     parking_lots = ParkingLot.query.all()
     users = User.query.all()
     reservations = Reservation.query.all()
     total_spots = sum(len(lot.spots) for lot in parking_lots)
     occupied_spots = sum(
-        1 for lot in parking_lots for spot in lot.spots if spot.status != 'A' 
+        1 for lot in parking_lots for spot in lot.spots if spot.status != 'A'
     )
     total_revenue = sum(r.parking_cost or 0 for r in reservations)
     return parking_lots, users, reservations, total_spots, occupied_spots, total_revenue
 
+
+# ----------------------------
+# Admin Dashboard
+# ----------------------------
 @admin_bp.route('/dashboard')
 @admin_required
 def admin_dashboard():
@@ -53,33 +61,88 @@ def admin_dashboard():
         occupied_spots=occupied_spots
     )
 
-@admin_bp.route('/lot/<int:lot_id>/edit', methods=['POST'])
+
+# ----------------------------
+# Add Parking Lot
+# ----------------------------
+@admin_bp.route("/lot/add", methods=["POST"])
+@admin_required
+def add_lot():
+    try:
+        name = request.form.get("name")
+        address = request.form.get("address")
+        pin_code = request.form.get("pin_code")
+        price = float(request.form.get("price", 0))
+        maximum_spots = int(request.form.get("maximum_spots", 0))
+        latitude = request.form.get("latitude")
+        longitude = request.form.get("longitude")
+
+        if not name or not address or not pin_code:
+            flash("⚠️ Missing required fields (Name, Address, or Pin Code).", "danger")
+            return redirect(url_for("admin.admin_dashboard"))
+
+        lot = ParkingLot(
+            prime_location_name=name,
+            address=address,
+            pin_code=pin_code,
+            price=price,
+            maximum_number_of_spots=maximum_spots,
+            latitude=float(latitude) if latitude else None,
+            longitude=float(longitude) if longitude else None
+        )
+        db.session.add(lot)
+        db.session.commit()
+
+        flash("✅ Parking lot added successfully!", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Error while adding lot:", str(e))
+        flash("❌ Failed to add parking lot. Please try again.", "danger")
+
+    return redirect(url_for("admin.admin_dashboard"))
+
+
+# ----------------------------
+# Edit Parking Lot
+# ----------------------------
+@admin_bp.route("/lot/<int:lot_id>/edit", methods=["POST"])
 @admin_required
 def edit_lot(lot_id):
     lot = ParkingLot.query.get_or_404(lot_id)
-    lot.prime_location_name = request.form['name']
-    lot.address = request.form['address']
-    lot.pin_code = request.form['pin_code']
-    lot.price = float(request.form['rate'])
-    db.session.commit()
-    flash('Parking lot updated successfully!', 'success')
-    return redirect(url_for('admin.admin_dashboard'))
 
-@admin_bp.route('/lot/add', methods=['POST'])
-@admin_required
-def add_parking_lot():
-    lot = ParkingLot(
-        prime_location_name=request.form['lot_name'],
-        address=request.form['address'],
-        pin_code=request.form['pincode'],
-        price=float(request.form['price']),
-        maximum_number_of_spots=int(request.form['maximum_spots'])
-    )
-    db.session.add(lot)
-    db.session.commit()
-    flash('New parking lot added!', 'success')
-    return redirect(url_for('admin.admin_dashboard'))
+    try:
+        name = request.form.get("name")
+        address = request.form.get("address")
+        pin_code = request.form.get("pin_code")
+        price = float(request.form.get("price", 0))
+        latitude = request.form.get("latitude")
+        longitude = request.form.get("longitude")
 
+        if not name or not address or not pin_code:
+            flash("⚠️ Missing required fields (Name, Address, or Pin Code).", "danger")
+            return redirect(url_for("admin.admin_dashboard"))
+
+        lot.prime_location_name = name
+        lot.address = address
+        lot.pin_code = pin_code
+        lot.price = price
+        lot.latitude = float(latitude) if latitude else None
+        lot.longitude = float(longitude) if longitude else None
+
+        db.session.commit()
+        flash("✅ Lot updated successfully!", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Error while updating lot:", str(e))
+        flash("❌ Failed to update lot. Please try again.", "danger")
+
+    return redirect(url_for("admin.admin_dashboard"))
+
+# ----------------------------
+# Parking Spots Overview
+# ----------------------------
 @admin_bp.route('/parking_spots')
 @admin_required
 def parking_spots_overview():
@@ -94,6 +157,10 @@ def parking_spots_overview():
         occupied_spots=occupied_spots
     )
 
+
+# ----------------------------
+# Users Management
+# ----------------------------
 @admin_bp.route('/users')
 @admin_required
 def admin_users():
@@ -110,6 +177,10 @@ def admin_users():
         occupied_spots=occupied_spots
     )
 
+
+# ----------------------------
+# Delete Spot
+# ----------------------------
 @admin_bp.route('/delete_spot/<int:spot_id>', methods=['POST'])
 @admin_required
 def delete_parking_spot(spot_id):
@@ -119,6 +190,10 @@ def delete_parking_spot(spot_id):
     flash(f'Spot #{spot.id} deleted.', 'success')
     return redirect(request.referrer or url_for('admin.admin_dashboard'))
 
+
+# ----------------------------
+# Add Spots to Lot
+# ----------------------------
 @admin_bp.route('/add_spots/<int:lot_id>', methods=['POST'])
 @admin_required
 def add_spots(lot_id):
@@ -135,6 +210,10 @@ def add_spots(lot_id):
     flash(f"{number_of_spots} spots added to {lot.prime_location_name}", "success")
     return redirect(url_for('admin.admin_dashboard'))
 
+
+# ----------------------------
+# Delete User
+# ----------------------------
 @admin_bp.route('/delete_user/<int:user_id>', methods=['POST'])
 @admin_required
 def delete_user(user_id):
@@ -144,6 +223,10 @@ def delete_user(user_id):
     flash('User deleted successfully!', 'success')
     return redirect(url_for('admin.admin_users'))
 
+
+# ----------------------------
+# Admin Summary
+# ----------------------------
 @admin_bp.route('/summary')
 @admin_required
 def admin_summary():
